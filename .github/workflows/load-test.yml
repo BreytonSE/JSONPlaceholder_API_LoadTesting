@@ -1,0 +1,41 @@
+name: JMeter Load Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install JMeter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jmeter
+
+      - name: Run JMeter Test
+        run: |
+          jmeter -n \
+            -t jmeter/jsonplaceholder-test.jmx \
+            -l results.jtl \
+            -e -o report
+
+      - name: Fail if Errors > 1%
+        run: |
+          ERROR_RATE=$(grep -o 's="[^"]*"' report/statistics.json | head -1 | sed 's/[^0-9.]//g')
+          echo "Error rate: $ERROR_RATE"
+          if (( $(echo "$ERROR_RATE > 1.0" | bc -l) )); then
+            echo "Error rate too high!"
+            exit 1
+          fi
+
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-report
+          path: report
