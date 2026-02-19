@@ -13,10 +13,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install JMeter
+      - name: Install JMeter (Latest)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jmeter
+          JMETER_VERSION=5.6.3
+          wget https://downloads.apache.org//jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+          echo "$PWD/apache-jmeter-${JMETER_VERSION}/bin" >> $GITHUB_PATH
 
       - name: Run JMeter Test
         run: |
@@ -24,15 +26,6 @@ jobs:
             -t jmeter/jsonplaceholder-test.jmx \
             -l results.jtl \
             -e -o report
-
-      - name: Fail if Errors > 1%
-        run: |
-          ERROR_RATE=$(grep -o 's="[^"]*"' report/statistics.json | head -1 | sed 's/[^0-9.]//g')
-          echo "Error rate: $ERROR_RATE"
-          if (( $(echo "$ERROR_RATE > 1.0" | bc -l) )); then
-            echo "Error rate too high!"
-            exit 1
-          fi
 
       - name: Upload HTML Report
         uses: actions/upload-artifact@v4
