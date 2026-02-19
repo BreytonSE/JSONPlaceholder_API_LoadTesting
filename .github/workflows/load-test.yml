@@ -26,8 +26,39 @@ jobs:
             -t jmeter/jsonplaceholder-test.jmx \
             -l results.jtl \
             -e -o report
+            
+      - name: Validate Performance Thresholds
+        run: |
+          echo "Calculating metrics..."
+
+          TOTAL=$(awk -F',' 'NR>1 {count++} END {print count}' results.jtl)
+          FAILURES=$(awk -F',' 'NR>1 && $8=="false" {count++} END {print count+0}' results.jtl)
+          AVG_RESPONSE=$(awk -F',' 'NR>1 {sum+=$2; count++} END {print int(sum/count)}' results.jtl)
+
+          ERROR_RATE=$(awk "BEGIN {printf \"%.2f\", ($FAILURES/$TOTAL)*100}")
+
+          echo "Total Requests: $TOTAL"
+          echo "Failed Requests: $FAILURES"
+          echo "Error Rate: $ERROR_RATE%"
+          echo "Average Response Time: $AVG_RESPONSE ms"
+
+          MAX_ERROR=1
+          MAX_AVG=500
+
+          if (( $(echo "$ERROR_RATE > $MAX_ERROR" | bc -l) )); then
+            echo "❌ Error rate exceeds threshold!"
+            exit 1
+          fi
+
+          if (( AVG_RESPONSE > MAX_AVG )); then
+            echo "❌ Average response time exceeds threshold!"
+            exit 1
+          fi
+
+          echo "✅ Performance within acceptable limits"    
 
       - name: Upload HTML Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-report
